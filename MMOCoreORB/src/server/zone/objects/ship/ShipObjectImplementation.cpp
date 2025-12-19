@@ -703,9 +703,19 @@ void ShipObjectImplementation::notifyRemoveFromZone() {
 }
 
 void ShipObjectImplementation::updateZone(bool lightUpdate, bool sendPackets) {
-	updatePlayersInShip(lightUpdate, sendPackets);
-
 	SceneObjectImplementation::updateZone(lightUpdate, sendPackets);
+
+	Reference<ShipObject*> shipRef = asShipObject();
+
+	Core::getTaskManager()->executeTask([shipRef, lightUpdate, sendPackets] () {
+		if (shipRef == nullptr) {
+			return;
+		}
+
+		Locker locker(shipRef);
+
+		shipRef->updatePlayersInShip(lightUpdate, sendPackets);
+	}, "UpdatePlayersInShipLambda");
 
 #ifdef DEBUG_COV
 	if (isPlayerShip()) {
@@ -717,7 +727,7 @@ void ShipObjectImplementation::updateZone(bool lightUpdate, bool sendPackets) {
 }
 
 void ShipObjectImplementation::updatePlayersInShip(bool lightUpdate, bool sendPackets) {
-	if (getLocalZone() == nullptr) {
+	if (!isShipLaunched()) {
 		return;
 	}
 
@@ -727,9 +737,10 @@ void ShipObjectImplementation::updatePlayersInShip(bool lightUpdate, bool sendPa
 		return;
 	}
 
-	Locker lock(&playersOnBoardMutex);
-
 	const auto& worldPosition = getWorldPosition();
+	auto thisShip = asShipObject();
+
+	Locker lock(&playersOnBoardMutex);
 
 	for (int i = 0; i < playersOnBoard.size(); ++i) {
 		auto shipMemberID = playersOnBoard.get(i);
@@ -739,7 +750,7 @@ void ShipObjectImplementation::updatePlayersInShip(bool lightUpdate, bool sendPa
 			continue;
 		}
 
-		Locker clock(shipMember, asShipObject());
+		Locker clock(shipMember, thisShip);
 
 		auto parent = shipMember->getParent().get();
 
@@ -747,11 +758,15 @@ void ShipObjectImplementation::updatePlayersInShip(bool lightUpdate, bool sendPa
 			continue;
 		}
 
-		if (parent == asShipObject()) {
-			shipMember->setPosition(worldPosition.getX(), worldPosition.getZ(), worldPosition.getY());
-		}
+		if (parent != thisShip) {
+			auto parentPosition = parent->getPosition();
 
-		shipMember->updateZoneWithParent(parent, lightUpdate, sendPackets);
+			shipMember->setPosition(parentPosition.getX(), parentPosition.getZ(), parentPosition.getY());
+			shipMember->updateZoneWithParent(parent, lightUpdate, sendPackets);
+		} else {
+			shipMember->setPosition(worldPosition.getX(), worldPosition.getZ(), worldPosition.getY());
+			shipMember->updateZoneWithParent(thisShip, lightUpdate, sendPackets);
+		}
 	}
 }
 
@@ -1749,7 +1764,7 @@ CreatureObject* ShipObjectImplementation::getShipOperator() {
 		return nullptr;
 	}
 
-	return chair->getSlottedObject("ship_operations_station").castTo<CreatureObject*>();
+	return chair->getSlottedObject("ship_operations_pob").castTo<CreatureObject*>();
 }
 
 CreatureObject* ShipObjectImplementation::getTurretOperatorTop() {
@@ -2365,6 +2380,10 @@ bool ShipObjectImplementation::isShipDestroyed() {
 	return getChassisCurrentHealth() <= 0.f;
 }
 
+bool ShipObjectImplementation::isShipDocking() {
+	return optionsBitmask & OptionBitmask::DOCKING;
+}
+
 bool ShipObjectImplementation::isComponentInstalled(uint32 slot) {
 	return getShipComponentMap()->get(slot) != 0;
 }
@@ -2785,4 +2804,8 @@ float ShipObjectImplementation::getNextDistance() {
 
 float ShipObjectImplementation::getNextRotation() {
 	return shipTransform.getNextRotation();
+}
+
+Vector3 ShipObjectImplementation::getPlayerLocationInShip(const Vector3& playerPosition) {
+	return SpaceMath::getGlobalVector(playerPosition, conjugateMatrix) + getWorldPosition();
 }

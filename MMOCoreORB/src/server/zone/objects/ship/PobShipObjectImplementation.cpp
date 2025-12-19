@@ -573,7 +573,19 @@ int PobShipObjectImplementation::notifyObjectInsertedToChild(SceneObject* object
 
 		if (objectIsPlayer) {
 			// Add player to the onboard list
-			addPlayerOnBoard(object->asCreatureObject());
+			Reference<PobShipObject*> pobRef = asPobShip();
+			Reference<CreatureObject*> playerRef = object->asCreatureObject();
+
+			Core::getTaskManager()->executeTask([pobRef, playerRef]() {
+				if (pobRef == nullptr || playerRef == nullptr) {
+					return;
+				}
+
+				Locker lock(pobRef);
+				Locker clock(playerRef, pobRef);
+
+				pobRef->addPlayerOnBoard(playerRef);
+			}, "PobAddPlayerOnBoard");
 		}
 	} catch (Exception& e) {
 		error(e.getMessage());
@@ -658,12 +670,6 @@ void PobShipObjectImplementation::onEnter(CreatureObject* player) {
 
 void PobShipObjectImplementation::updateZone(bool lightUpdate, bool sendPackets) {
 	ShipObjectImplementation::updateZone(lightUpdate, sendPackets);
-}
-
-void PobShipObjectImplementation::updatePlayersInShip(bool lightUpdate, bool sendPackets) {
-	//info(true) << "PobShipObjectImplementation::updatePlayersInShip - " << getDisplayedName();
-
-	ShipObjectImplementation::updatePlayersInShip(lightUpdate, sendPackets);
 }
 
 void PobShipObjectImplementation::sendTo(SceneObject* sceneO, bool doClose, bool forceLoadContainer) {
