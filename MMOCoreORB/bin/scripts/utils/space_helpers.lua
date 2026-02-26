@@ -498,9 +498,9 @@ function SpaceHelpers:surrenderPilot(pPlayer)
 		-- Tier 2
 		HavocSquadronScreenplay:resetViopaQuests(pPlayer)
 		-- Tier 3
-		HavocSquadronScreenplay:resetArkonQuests(pPlayer)
-		-- Tier 4
 		HavocSquadronScreenplay:resetAqzowQuests(pPlayer)
+		-- Tier 4
+		HavocSquadronScreenplay:resetArkonQuests(pPlayer)
 	elseif (pilotSquadron == VORTEX_SQUADRON) then
 		pilotProfession = "rebelPilot"
 
@@ -632,7 +632,7 @@ function SpaceHelpers:addViopaWaypoint(pPlayer)
 		return
 	end
 
-	PlayerObject(pGhost):addWaypoint("lok", "@npc_spawner_n:viopa", "@npc_spawner_n:viopa", -2, 4, -10, WAYPOINT_BLUE, true, true, 0)
+	PlayerObject(pGhost):addWaypoint("lok", "@npc_spawner_n:viopa", "@npc_spawner_n:viopa", 472, 0, 4779, WAYPOINT_BLUE, true, true, 0)
 end
 
 -- @param pPlayer pointer adds waypoint to the Rebel Arkon's Havok Squad Tier1 Trainer
@@ -1453,6 +1453,16 @@ end
 -- @param minRange - min distance to find the location
 -- @param maxRange - max distance to find the location
 function SpaceHelpers:getRandomPositionInSphere(x, z, y, minRange, maxRange)
+	if x == nil or z == nil or y == nil or minRange == nil or maxRange == nil then
+		Logger:log("SpaceHelpers:getRandomPositionInSphere -- nil parameter passed. x: " .. tostring(x) .. " z: " .. tostring(z) .. " y: " .. tostring(y) .. " minRange: " .. tostring(minRange) .. " maxRange: " .. tostring(maxRange), LT_ERROR)
+
+		if x ~= nil and z ~= nil and y ~= nil then
+			return x, z, y
+		end
+
+		return nil
+	end
+
 	local bound = 7500
 	local minBound, maxBound = -bound, bound
 
